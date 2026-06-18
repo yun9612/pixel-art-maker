@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>픽셀 메이커</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#13131a; --panel:#1c1c26; --line:#2c2c3a;
+    --ink:#e8e8f0; --sub:#8a8a9c; --accent:#7c6cff; --accent2:#00d9c0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    min-height:100vh; padding:24px;
+  }
+  .wrap{max-width:1100px;margin:0 auto}
+  h1{font-size:20px;font-weight:700;letter-spacing:-.3px;margin-bottom:2px}
+  h1 span{color:var(--accent)}
+  .tag{color:var(--sub);font-size:13px;margin-bottom:20px}
+  .grid{display:grid;grid-template-columns:300px 1fr;gap:20px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px}
+  .field{margin-bottom:18px}
+  .field:last-child{margin-bottom:0}
+  label{display:block;font-size:12px;color:var(--sub);margin-bottom:8px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .drop{
+    border:1.5px dashed var(--line);border-radius:12px;padding:28px 16px;text-align:center;
+    cursor:pointer;transition:.15s;font-size:13px;color:var(--sub)
+  }
+  .drop:hover,.drop.over{border-color:var(--accent);color:var(--ink);background:rgba(124,108,255,.06)}
+  input[type=file]{display:none}
+  .row{display:flex;align-items:center;gap:10px}
+  .num{
+    width:100%;background:var(--bg);border:1px solid var(--line);color:var(--ink);
+    border-radius:8px;padding:9px 11px;font-size:14px;font-variant-numeric:tabular-nums
+  }
+  .num:focus{outline:none;border-color:var(--accent)}
+  .slider{width:100%;accent-color:var(--accent)}
+  .val{font-size:13px;color:var(--accent2);font-variant-numeric:tabular-nums;min-width:54px;text-align:right}
+  .seg{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{
+    flex:1;min-width:48px;background:var(--bg);border:1px solid var(--line);color:var(--sub);
+    border-radius:8px;padding:7px 4px;font-size:12px;cursor:pointer;text-align:center;transition:.12s
+  }
+  .chip.on{border-color:var(--accent);color:var(--ink);background:rgba(124,108,255,.12)}
+  .check{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--ink)}
+  .check input{accent-color:var(--accent);width:16px;height:16px}
+  .btn{
+    width:100%;background:var(--accent);color:#fff;border:none;border-radius:9px;
+    padding:11px;font-size:14px;font-weight:600;cursor:pointer;transition:.12s;margin-top:4px
+  }
+  .btn:hover{filter:brightness(1.1)}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--sub)}
+  .btn.ghost:hover{color:var(--ink);border-color:var(--accent)}
+  .stage{
+    background:var(--bg);border:1px solid var(--line);border-radius:12px;
+    min-height:420px;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto
+  }
+  canvas{image-rendering:pixelated;max-width:100%;border-radius:4px}
+  .empty{color:var(--sub);font-size:13px;text-align:center}
+  .meta{font-size:12px;color:var(--sub);margin-top:12px;display:flex;justify-content:space-between}
+  .topbar{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;gap:16px;flex-wrap:wrap}
+  .lang{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:3px}
+  .lang button{background:none;border:none;color:var(--sub);font-size:12px;font-weight:600;padding:6px 11px;border-radius:6px;cursor:pointer;transition:.12s}
+  .lang button.on{background:var(--accent);color:#fff}
+  .lang button:hover:not(.on){color:var(--ink)}
+  .tabs{display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid var(--line)}
+  .tabs button{background:none;border:none;color:var(--sub);font-size:14px;font-weight:600;padding:10px 16px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tabs button.on{color:var(--ink);border-bottom-color:var(--accent)}
+  .tabs button:hover:not(.on){color:var(--ink)}
+  .tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .tool{background:var(--bg);border:1px solid var(--line);color:var(--sub);border-radius:8px;padding:8px 11px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px}
+  .tool.on{border-color:var(--accent);color:var(--ink);background:rgba(124,108,255,.12)}
+  .tool:hover{color:var(--ink)}
+  .colorwrap{display:flex;align-items:center;gap:8px}
+  input[type=color]{width:42px;height:34px;border:1px solid var(--line);border-radius:8px;background:var(--bg);cursor:pointer;padding:2px}
+  .recents{display:flex;gap:5px;flex-wrap:wrap}
+  .recents .r{width:24px;height:24px;border-radius:5px;border:1px solid rgba(255,255,255,.15);cursor:pointer}
+  #pstage{cursor:crosshair}
+  .pal{margin-top:16px}
+  .pal h3{font-size:12px;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+  .swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+  .sw{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px}
+  .sw .box{width:26px;height:26px;border-radius:5px;border:1px solid rgba(255,255,255,.12);flex:none}
+  .sw .txt{font-size:11px;line-height:1.4;font-variant-numeric:tabular-nums}
+  .sw .hex{color:var(--ink);font-weight:600}
+  .sw .rgb{color:var(--sub)}
+  .copy{margin-left:auto;font-size:11px;color:var(--sub);cursor:pointer;border:1px solid var(--line);border-radius:6px;padding:3px 7px}
+  .copy:hover{color:var(--ink);border-color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <h1><span data-i18n="title1">픽셀</span> <span data-i18n="title2">메이커</span></h1>
+      <p class="tag" data-i18n="tag">이미지를 넣으면 원하는 격자와 픽셀 크기로 도트화해 드려요.</p>
+    </div>
+    <div class="lang" id="lang">
+      <button data-l="ko" class="on">한국어</button>
+      <button data-l="en">English</button>
+      <button data-l="ja">日本語</button>
+    </div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button data-tab="auto" class="on" data-i18n="tab_auto">자동 변환</button>
+    <button data-tab="paint" data-i18n="tab_paint">직접 찍기</button>
+  </div>
+
+  <div id="tab-auto">
+  <div class="grid">
+    <!-- 컨트롤 -->
+    <div class="panel">
+      <div class="field">
+        <label data-i18n="l_image">이미지</label>
+        <div class="drop" id="drop" data-i18n-html="drop">클릭 또는 드래그해서<br>이미지 올리기</div>
+        <input type="file" id="file" accept="image/*">
+      </div>
+
+      <div class="field">
+        <label data-i18n="l_ratio">비율</label>
+        <div class="seg" id="ratios">
+          <div class="chip on" data-r="src" data-i18n="r_src">원본</div>
+          <div class="chip" data-r="1:1">1:1</div>
+          <div class="chip" data-r="4:3">4:3</div>
+          <div class="chip" data-r="3:4">3:4</div>
+          <div class="chip" data-r="16:9">16:9</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label data-i18n="l_cols">가로 도트 수 (해상도)</label>
+        <div class="row">
+          <input type="range" class="slider" id="cols" min="8" max="256" value="64">
+          <span class="val" id="colsVal">64</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label data-i18n="l_scale">픽셀 크기 (배율)</label>
+        <div class="row">
+          <input type="range" class="slider" id="scale" min="1" max="24" value="8">
+          <span class="val" id="scaleVal">8×</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label data-i18n="l_ncolor">색상 수 (적을수록 단순)</label>
+        <div class="row">
+          <input type="range" class="slider" id="ncolor" min="2" max="24" value="5">
+          <span class="val" id="ncolorVal">5색</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label data-i18n="l_option">옵션</label>
+        <label class="check"><input type="checkbox" id="edge" checked> <span data-i18n="o_edge">라인 진하게 (엣지 강조)</span></label>
+        <label class="check" style="margin-top:8px"><input type="checkbox" id="gridline"> <span data-i18n="o_grid">격자선 표시</span></label>
+        <label class="check" style="margin-top:8px"><input type="checkbox" id="numbers"> <span data-i18n="o_num">칸마다 색 번호 표시</span></label>
+      </div>
+
+      <button class="btn" id="save" disabled data-i18n="b_png">PNG로 저장</button>
+
+      <div class="field" style="margin-top:18px;border-top:1px solid var(--line);padding-top:18px">
+        <label data-i18n="l_printw">인쇄 실제 가로 크기 (cm)</label>
+        <div class="row">
+          <input type="number" class="num" id="printW" value="100" min="1" step="1">
+        </div>
+        <p style="font-size:11px;color:var(--sub);margin-top:6px" data-i18n="print_note">세로는 이미지 비율대로 자동. A4로 분할됩니다.</p>
+        <button class="btn" id="pdf" disabled style="margin-top:10px" data-i18n="b_pdf">A4 분할 PDF 저장</button>
+      </div>
+    </div>
+
+    <!-- 결과 -->
+    <div class="panel">
+      <div class="stage" id="stage">
+        <div class="empty" id="empty" data-i18n="empty">왼쪽에서 이미지를 올려주세요.</div>
+        <canvas id="cv" style="display:none"></canvas>
+      </div>
+      <div class="meta">
+        <span id="info">—</span>
+        <span id="dim">—</span>
+      </div>
+      <div class="pal" id="pal" style="display:none">
+        <h3 id="palTitle">사용된 색</h3>
+        <div class="swatches" id="swatches"></div>
+      </div>
+    </div>
+  </div>
+  </div><!-- /tab-auto -->
+
+  <div id="tab-paint" style="display:none">
+  <div class="grid">
+    <div class="panel">
+      <div class="field">
+        <label data-i18n="l_image">이미지</label>
+        <div class="drop" id="pdrop" data-i18n-html="drop">클릭 또는 드래그해서<br>이미지 올리기</div>
+        <input type="file" id="pfile" accept="image/*">
+      </div>
+
+      <div class="field">
+        <label data-i18n="l_cols">가로 도트 수 (해상도)</label>
+        <div class="row">
+          <input type="range" class="slider" id="pcols" min="8" max="160" value="48">
+          <span class="val" id="pcolsVal">48</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label data-i18n="l_scale">픽셀 크기 (배율)</label>
+        <div class="row">
+          <input type="range" class="slider" id="pscale" min="6" max="40" value="16">
+          <span class="val" id="pscaleVal">16×</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label data-i18n="p_ref">참조 이미지 진하기</label>
+        <div class="row">
+          <input type="range" class="slider" id="popacity" min="0" max="100" value="45">
+          <span class="val" id="popacityVal">45%</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label data-i18n="p_color">색</label>
+        <div class="colorwrap">
+          <input type="color" id="pcolor" value="#7c6cff">
+          <button class="tool" id="peye" data-i18n="p_eyedropper">스포이드</button>
+          <button class="tool" id="peraser" data-i18n="p_eraser">지우개</button>
+        </div>
+        <div class="recents" id="precents" style="margin-top:10px"></div>
+      </div>
+
+      <div class="field">
+        <label data-i18n="l_option">옵션</label>
+        <label class="check"><input type="checkbox" id="pgrid" checked> <span data-i18n="o_grid">격자선 표시</span></label>
+        <label class="check" style="margin-top:8px"><input type="checkbox" id="pruler" checked> <span data-i18n="p_ruler">외곽 눈금 표시</span></label>
+      </div>
+
+      <button class="btn ghost" id="pclear" data-i18n="p_clear">전체 지우기</button>
+      <button class="btn" id="psave" style="margin-top:8px" data-i18n="b_png">PNG로 저장</button>
+    </div>
+
+    <div class="panel">
+      <div class="stage" id="pstageWrap">
+        <div class="empty" id="pempty" data-i18n="empty">왼쪽에서 이미지를 올려주세요.</div>
+        <canvas id="pstage" style="display:none"></canvas>
+      </div>
+      <div class="meta">
+        <span id="pinfo">—</span>
+        <span id="phint" data-i18n="p_hint">칸을 클릭/드래그해서 색을 찍으세요.</span>
+      </div>
+    </div>
+  </div>
+  </div><!-- /tab-paint -->
+</div><!-- /wrap -->
+
+<script>
+const $=id=>document.getElementById(id);
+
+// ===== 다국어 =====
+const I18N={
+  ko:{title1:'픽셀',title2:'메이커',tag:'이미지를 넣으면 원하는 격자와 픽셀 크기로 도트화해 드려요.',
+    l_image:'이미지',drop:'클릭 또는 드래그해서<br>이미지 올리기',l_ratio:'비율',r_src:'원본',
+    l_cols:'가로 도트 수 (해상도)',l_scale:'픽셀 크기 (배율)',l_ncolor:'색상 수 (적을수록 단순)',
+    l_option:'옵션',o_edge:'라인 진하게 (엣지 강조)',o_grid:'격자선 표시',o_num:'칸마다 색 번호 표시',
+    b_png:'PNG로 저장',l_printw:'인쇄 실제 가로 크기 (cm)',print_note:'세로는 이미지 비율대로 자동. A4로 분할됩니다.',
+    b_pdf:'A4 분할 PDF 저장',empty:'왼쪽에서 이미지를 올려주세요.',pal_title:'사용된 색',
+    copy:'복사',copied:'완료',u_color:'색',grid:'격자',output:'출력',
+    alert_w:'인쇄 가로 크기를 입력하세요.',row:'행',col:'열',basis:cm=>`(가로 ${cm}cm 기준)`,
+    tab_auto:'자동 변환',tab_paint:'직접 찍기',p_ref:'참조 이미지 진하기',p_color:'색',
+    p_eyedropper:'스포이드',p_eraser:'지우개',p_ruler:'외곽 눈금 표시',p_clear:'전체 지우기',
+    p_hint:'칸을 클릭/드래그해서 색을 찍으세요.',p_eyehint:'이미지에서 색을 클릭해 추출하세요.',cells:'칸'},
+  en:{title1:'Pixel',title2:'Maker',tag:'Drop in an image and it’s turned into dots at your chosen grid and pixel size.',
+    l_image:'Image',drop:'Click or drag<br>to add an image',l_ratio:'Ratio',r_src:'Original',
+    l_cols:'Width in dots (resolution)',l_scale:'Pixel size (zoom)',l_ncolor:'Number of colors (fewer = simpler)',
+    l_option:'Options',o_edge:'Bold edges',o_grid:'Show grid lines',o_num:'Show color number per cell',
+    b_png:'Save as PNG',l_printw:'Print width (cm)',print_note:'Height scales to the image ratio. Split across A4 pages.',
+    b_pdf:'Save A4-split PDF',empty:'Add an image on the left.',pal_title:'Colors used',
+    copy:'Copy',copied:'Done',u_color:'',grid:'Grid',output:'Output',
+    alert_w:'Enter a print width.',row:'Row',col:'Col',basis:cm=>`(width ${cm}cm)`,
+    tab_auto:'Auto convert',tab_paint:'Paint by hand',p_ref:'Reference opacity',p_color:'Color',
+    p_eyedropper:'Eyedropper',p_eraser:'Eraser',p_ruler:'Show outer ruler',p_clear:'Clear all',
+    p_hint:'Click/drag cells to paint.',p_eyehint:'Click the image to pick a color.',cells:'cells'},
+  ja:{title1:'ピクセル',title2:'メーカー',tag:'画像を入れると、指定したグリッドとピクセルサイズでドット化します。',
+    l_image:'画像',drop:'クリックまたはドラッグして<br>画像を追加',l_ratio:'比率',r_src:'元のまま',
+    l_cols:'横のドット数（解像度）',l_scale:'ピクセルサイズ（倍率）',l_ncolor:'色数（少ないほどシンプル）',
+    l_option:'オプション',o_edge:'輪郭を濃く（エッジ強調）',o_grid:'グリッド線を表示',o_num:'各マスに色番号を表示',
+    b_png:'PNGで保存',l_printw:'印刷時の実際の横幅 (cm)',print_note:'縦は画像の比率に自動調整。A4で分割されます。',
+    b_pdf:'A4分割PDFを保存',empty:'左側で画像を追加してください。',pal_title:'使用された色',
+    copy:'コピー',copied:'完了',u_color:'色',grid:'グリッド',output:'出力',
+    alert_w:'印刷の横幅を入力してください。',row:'行',col:'列',basis:cm=>`(横${cm}cm基準)`,
+    tab_auto:'自動変換',tab_paint:'手動で描く',p_ref:'参照画像の濃さ',p_color:'色',
+    p_eyedropper:'スポイト',p_eraser:'消しゴム',p_ruler:'外側の目盛りを表示',p_clear:'すべて消去',
+    p_hint:'マスをクリック／ドラッグして塗ります。',p_eyehint:'画像をクリックして色を取得します。',cells:'マス'}
+};
+let lang='ko';
+const t=k=>I18N[lang][k];
+
+function applyLang(){
+  document.documentElement.lang=lang;
+  document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=t(el.dataset.i18n));
+  document.querySelectorAll('[data-i18n-html]').forEach(el=>el.innerHTML=t(el.dataset.i18nHtml));
+  $('ncolorVal').textContent=$('ncolor').value+t('u_color');
+  if(typeof syncTools==='function' && pImg) syncTools();
+  if(img) render(); else { $('palTitle').textContent=t('pal_title'); }
+}
+$('lang').onclick=e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  document.querySelectorAll('#lang button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on'); lang=b.dataset.l; applyLang();
+};
+
+// ===== 탭 전환 =====
+$('tabs').onclick=e=>{
+  const b=e.target.closest('button'); if(!b)return;
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  const tab=b.dataset.tab;
+  $('tab-auto').style.display = tab==='auto'?'block':'none';
+  $('tab-paint').style.display = tab==='paint'?'block':'none';
+};
+
+const cv=$('cv'), ctx=cv.getContext('2d');
+let img=null, ratio='src', state=null;
+
+// 업로드
+$('drop').onclick=()=>$('file').click();
+$('file').onchange=e=>load(e.target.files[0]);
+['dragover','dragleave','drop'].forEach(ev=>{
+  $('drop').addEventListener(ev,e=>{
+    e.preventDefault();
+    $('drop').classList.toggle('over', ev==='dragover');
+    if(ev==='drop' && e.dataTransfer.files[0]) load(e.dataTransfer.files[0]);
+  });
+});
+function load(f){
+  if(!f||!f.type.startsWith('image/'))return;
+  const r=new FileReader();
+  r.onload=()=>{ const i=new Image(); i.onload=()=>{img=i;render()}; i.src=r.result; };
+  r.readAsDataURL(f);
+}
+
+// 비율 선택
+$('ratios').onclick=e=>{
+  const c=e.target.closest('.chip'); if(!c)return;
+  document.querySelectorAll('#ratios .chip').forEach(x=>x.classList.remove('on'));
+  c.classList.add('on'); ratio=c.dataset.r; render();
+};
+
+// 슬라이더 & 옵션
+$('cols').oninput=()=>{$('colsVal').textContent=$('cols').value;render()};
+$('scale').oninput=()=>{$('scaleVal').textContent=$('scale').value+'×';render()};
+$('ncolor').oninput=()=>{$('ncolorVal').textContent=$('ncolor').value+t('u_color');render()};
+$('gridline').onchange=render;
+$('edge').onchange=render;
+$('numbers').onchange=render;
+
+function lum(r,g,b){ return 0.299*r+0.587*g+0.114*b; }
+const hex=c=>'#'+c.map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();
+
+// 중앙값 분할(median cut)로 대표색 N개 추출
+function medianCut(pixels, n){
+  let boxes=[pixels];
+  while(boxes.length<n){
+    // 가장 색 범위가 넓은 박스를 분할
+    let bi=-1, brange=-1, bch=0;
+    boxes.forEach((box,idx)=>{
+      if(box.length<2)return;
+      for(let ch=0;ch<3;ch++){
+        let mn=255,mx=0;
+        for(const p of box){ if(p[ch]<mn)mn=p[ch]; if(p[ch]>mx)mx=p[ch]; }
+        const r=mx-mn;
+        if(r>brange){brange=r;bi=idx;bch=ch;}
+      }
+    });
+    if(bi<0)break;
+    const box=boxes[bi].slice().sort((a,b)=>a[bch]-b[bch]);
+    const mid=box.length>>1;
+    boxes.splice(bi,1,box.slice(0,mid),box.slice(mid));
+  }
+  return boxes.map(box=>{
+    let r=0,g=0,b=0; for(const p of box){r+=p[0];g+=p[1];b+=p[2];}
+    const L=box.length||1; return [Math.round(r/L),Math.round(g/L),Math.round(b/L)];
+  });
+}
+function nearest(c, pal){
+  let bi=0, bd=Infinity;
+  for(let i=0;i<pal.length;i++){
+    const dr=c[0]-pal[i][0],dg=c[1]-pal[i][1],db=c[2]-pal[i][2];
+    const d=dr*dr+dg*dg+db*db; if(d<bd){bd=d;bi=i;}
+  }
+  return bi;
+}
+
+// 비율에 맞춰 원본은 그대로 두고 가장자리 색으로 배경을 확장한 소스 캔버스 생성
+function buildSource(){
+  if(ratio==='src'){
+    const c=document.createElement('canvas');
+    c.width=img.width; c.height=img.height;
+    c.getContext('2d').drawImage(img,0,0);
+    return c;
+  }
+  const [rw,rh]=ratio.split(':').map(Number); const tAR=rw/rh;
+  const iAR=img.width/img.height;
+  let W,H,ox=0,oy=0;
+  if(iAR<tAR){ H=img.height; W=Math.round(H*tAR); ox=Math.round((W-img.width)/2); }
+  else { W=img.width; H=Math.round(W/tAR); oy=Math.round((H-img.height)/2); }
+  const c=document.createElement('canvas'); c.width=W; c.height=H;
+  const g=c.getContext('2d'); g.imageSmoothingEnabled=false;
+  // 좌우 여백: 양 끝 세로줄을 늘려 채움 / 상하 여백: 위·아래 가로줄을 늘려 채움
+  if(ox>0){
+    g.drawImage(img,0,0,1,img.height, 0,oy, ox, img.height);
+    g.drawImage(img,img.width-1,0,1,img.height, ox+img.width,oy, W-(ox+img.width), img.height);
+  }
+  if(oy>0){
+    g.drawImage(img,0,0,img.width,1, ox,0, img.width, oy);
+    g.drawImage(img,0,img.height-1,img.width,1, ox,oy+img.height, img.width, H-(oy+img.height));
+  }
+  g.drawImage(img, ox, oy); // 원본 그대로 위에
+  return c;
+}
+
+function render(){
+  if(!img)return;
+  $('empty').style.display='none'; cv.style.display='block'; $('save').disabled=false; $('pdf').disabled=false;
+
+  const cols=+$('cols').value;
+  // 배경 확장된 소스 생성 후 그 비율로 격자 계산
+  const srcC=buildSource();
+  const ar=srcC.width/srcC.height;
+  const rows=Math.max(1, Math.round(cols/ar));
+
+  // 1) 셀별 대표색 모으기 (엣지 강조 시 가장 진한 색 채택)
+  const tmp=document.createElement('canvas');
+  tmp.width=cols; tmp.height=rows;
+  const tctx=tmp.getContext('2d');
+  const edge=$('edge').checked;
+  const cells=new Array(cols*rows); // [r,g,b]
+
+  if(edge){
+    const ss=3;
+    const buf=document.createElement('canvas');
+    buf.width=cols*ss; buf.height=rows*ss;
+    const bctx=buf.getContext('2d');
+    bctx.imageSmoothingEnabled=true;
+    bctx.drawImage(srcC,0,0,buf.width,buf.height);
+    const src=bctx.getImageData(0,0,buf.width,buf.height).data;
+    for(let cy=0;cy<rows;cy++)for(let cx=0;cx<cols;cx++){
+      let best=999,br=0,bg=0,bb=0;
+      for(let dy=0;dy<ss;dy++)for(let dx=0;dx<ss;dx++){
+        const i=((cy*ss+dy)*buf.width+(cx*ss+dx))*4;
+        const L=lum(src[i],src[i+1],src[i+2]);
+        if(L<best){best=L;br=src[i];bg=src[i+1];bb=src[i+2];}
+      }
+      cells[cy*cols+cx]=[br,bg,bb];
+    }
+  } else {
+    tctx.imageSmoothingEnabled=true;
+    tctx.drawImage(srcC,0,0,cols,rows);
+    const d=tctx.getImageData(0,0,cols,rows).data;
+    for(let i=0;i<cols*rows;i++) cells[i]=[d[i*4],d[i*4+1],d[i*4+2]];
+  }
+
+  // 2) 색상 수 줄이기 (median cut) → 셀마다 가장 가까운 색으로 매핑
+  const N=+$('ncolor').value;
+  const pal=medianCut(cells, N);
+  const counts=new Array(pal.length).fill(0);
+  const cellPi=new Array(cells.length); // 셀별 팔레트 인덱스
+  const out=tctx.createImageData(cols,rows);
+  for(let i=0;i<cells.length;i++){
+    const pi=nearest(cells[i],pal); counts[pi]++; cellPi[i]=pi;
+    const c=pal[pi], o=i*4;
+    out.data[o]=c[0]; out.data[o+1]=c[1]; out.data[o+2]=c[2]; out.data[o+3]=255;
+  }
+  tctx.putImageData(out,0,0);
+
+  // 실제 사용된 색만, 많이 쓰인 순으로 → 번호 부여(1부터)
+  const used=pal.map((c,i)=>({c,n:counts[i],pi:i})).filter(x=>x.n>0).sort((a,b)=>b.n-a.n);
+  const numOf={}; used.forEach((u,idx)=>numOf[u.pi]=idx+1);
+  showPalette(used, cols*rows);
+
+  // 2) 확대 (선명한 도트) + 외곽 눈금
+  const sc=+$('scale').value;
+  const digits=Math.max(String(cols).length, String(rows).length);
+  const rf=Math.max(8, Math.floor(sc*0.5));      // 눈금 글자 크기
+  const G=Math.ceil(rf*digits*0.62)+6;           // 눈금 줄 두께
+  cv.width=cols*sc+G; cv.height=rows*sc+G;
+  ctx.clearRect(0,0,cv.width,cv.height);
+
+  // 눈금 배경(회색)
+  ctx.fillStyle='#e6e6ec';
+  ctx.fillRect(0,0,cv.width,G);   // 상단 줄
+  ctx.fillRect(0,0,G,cv.height);  // 좌측 줄
+
+  // 픽셀 이미지(거터만큼 이동)
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(tmp, G, G, cols*sc, rows*sc);
+
+  // 눈금 숫자 (가로 1~열수: 위, 세로 1~행수: 왼쪽) — 토글과 무관하게 항상 표시
+  ctx.fillStyle='#555'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.font=`${rf}px monospace`;
+  for(let x=0;x<cols;x++){   // 상단: 세로로 세워서 표기
+    ctx.save();
+    ctx.translate(G+x*sc+sc/2, G/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.fillText(x+1,0,0);
+    ctx.restore();
+  }
+  for(let y=0;y<rows;y++){   // 좌측: 가로로 표기
+    ctx.fillText(y+1, G/2, G+y*sc+sc/2);
+  }
+  // 눈금/이미지 경계선
+  ctx.strokeStyle='rgba(0,0,0,.25)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(G,G); ctx.lineTo(cv.width,G); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(G,G); ctx.lineTo(G,cv.height); ctx.stroke();
+
+  // 3) 격자선
+  if($('gridline').checked && sc>=4){
+    ctx.strokeStyle='rgba(0,0,0,.18)'; ctx.lineWidth=1;
+    for(let x=0;x<=cols;x++){ctx.beginPath();ctx.moveTo(G+x*sc,G);ctx.lineTo(G+x*sc,cv.height);ctx.stroke();}
+    for(let y=0;y<=rows;y++){ctx.beginPath();ctx.moveTo(G,G+y*sc);ctx.lineTo(cv.width,G+y*sc);ctx.stroke();}
+  }
+
+  // 4) 칸마다 색 번호
+  if($('numbers').checked){
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font=`bold ${Math.max(7,Math.floor(sc*0.55))}px monospace`;
+    for(let cy=0;cy<rows;cy++)for(let cx=0;cx<cols;cx++){
+      const i=cy*cols+cx, c=pal[cellPi[i]];
+      ctx.fillStyle = lum(c[0],c[1],c[2])>140 ? 'rgba(0,0,0,.7)' : 'rgba(255,255,255,.85)';
+      ctx.fillText(numOf[cellPi[i]], G+cx*sc+sc/2, G+cy*sc+sc/2+0.5);
+    }
+  }
+
+  $('info').textContent=`${t('grid')} ${cols} × ${rows}`;
+  $('dim').textContent=`${t('output')} ${cv.width} × ${cv.height}px`;
+
+  // PDF 등에서 재사용할 상태 저장
+  state={cols,rows,pal,cellPi,numOf,showGrid:$('gridline').checked,showNum:$('numbers').checked};
+}
+
+// 저장
+$('save').onclick=()=>{
+  const a=document.createElement('a');
+  a.download='pixel-art.png'; a.href=cv.toDataURL('image/png'); a.click();
+};
+
+// 셀 범위 [x0,x1)×[y0,y1)를 캔버스에 그림 (격자/번호 옵션 포함)
+function renderRange(x0,y0,x1,y1,cellPx){
+  const {pal,cellPi,cols,numOf,showGrid,showNum}=state;
+  const w=(x1-x0)*cellPx, h=(y1-y0)*cellPx;
+  const c=document.createElement('canvas'); c.width=w; c.height=h;
+  const g=c.getContext('2d');
+  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
+    const col=pal[cellPi[y*cols+x]];
+    g.fillStyle=`rgb(${col[0]},${col[1]},${col[2]})`;
+    g.fillRect((x-x0)*cellPx,(y-y0)*cellPx,cellPx,cellPx);
+  }
+  if(showGrid){
+    g.strokeStyle='rgba(0,0,0,.25)'; g.lineWidth=1;
+    for(let x=x0;x<=x1;x++){g.beginPath();g.moveTo((x-x0)*cellPx,0);g.lineTo((x-x0)*cellPx,h);g.stroke();}
+    for(let y=y0;y<=y1;y++){g.beginPath();g.moveTo(0,(y-y0)*cellPx);g.lineTo(w,(y-y0)*cellPx);g.stroke();}
+  }
+  if(showNum){
+    g.textAlign='center'; g.textBaseline='middle';
+    g.font=`bold ${Math.max(8,Math.floor(cellPx*0.5))}px monospace`;
+    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
+      const pi=cellPi[y*cols+x], col=pal[pi];
+      g.fillStyle = lum(col[0],col[1],col[2])>140?'rgba(0,0,0,.75)':'rgba(255,255,255,.9)';
+      g.fillText(numOf[pi],(x-x0)*cellPx+cellPx/2,(y-y0)*cellPx+cellPx/2);
+    }
+  }
+  return c;
+}
+
+// A4 분할 PDF
+$('pdf').onclick=()=>{
+  if(!state){return;}
+  const Wcm=parseFloat($('printW').value);
+  if(!(Wcm>0)){alert(t('alert_w'));return;}
+
+  const {cols,rows}=state;
+  const totalWmm=Wcm*10;
+  const cellMm=totalWmm/cols;            // 칸 한 변(mm), 정사각
+  const totalHmm=cellMm*rows;
+
+  // A4 세로, 여백 8mm, 상단 라벨 7mm
+  const A4W=210, A4H=297, M=8, LABEL=7;
+  const contentW=A4W-M*2;
+  const contentH=A4H-M*2-LABEL;
+  const cpx=Math.max(1,Math.floor(contentW/cellMm)); // 페이지당 가로 칸수
+  const cpy=Math.max(1,Math.floor(contentH/cellMm)); // 페이지당 세로 칸수
+  const pagesX=Math.ceil(cols/cpx), pagesY=Math.ceil(rows/cpy);
+  const totalPages=pagesX*pagesY;
+
+  // 인쇄 해상도: 칸당 픽셀 (약 150dpi 상당, 번호 가독성 위해 최소 24)
+  const cellPx=Math.max(24,Math.round(cellMm/25.4*150));
+
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'a4'});
+
+  let page=0;
+  for(let py=0;py<pagesY;py++)for(let px=0;px<pagesX;px++){
+    if(page>0) doc.addPage();
+    page++;
+    const x0=px*cpx, x1=Math.min(cols,x0+cpx);
+    const y0=py*cpy, y1=Math.min(rows,y0+cpy);
+    const wmm=(x1-x0)*cellMm, hmm=(y1-y0)*cellMm;
+
+    const tile=renderRange(x0,y0,x1,y1,cellPx);
+    doc.addImage(tile.toDataURL('image/png'),'PNG',M,M+LABEL,wmm,hmm);
+
+    // 라벨: 순번 + 행/열 좌표
+    doc.setFontSize(9); doc.setTextColor(60);
+    doc.text(`${page} / ${totalPages}  -  Row ${py+1} / Col ${px+1}  -  W ${Wcm}cm`, M, M+4);
+    // 절단/이어붙이기 가이드 테두리
+    doc.setDrawColor(180); doc.setLineWidth(0.2);
+    doc.rect(M, M+LABEL, wmm, hmm);
+  }
+
+  doc.save(`pixel-print-${Wcm}cm-${pagesX}x${pagesY}.pdf`);
+};
+
+/* =========================================================
+   탭 2: 직접 찍기 (가이드 격자 + 스포이드 + 수동 페인팅)
+   ========================================================= */
+const pcv=$('pstage'), pctx=pcv.getContext('2d');
+let pImg=null, pCols=48, pRows=48, pSc=16, paint=[], refCtx=null, recents=[];
+let eyeOn=false, eraserOn=false, drawing=false;
+
+// 업로드
+$('pdrop').onclick=()=>$('pfile').click();
+$('pfile').onchange=e=>ploadFile(e.target.files[0]);
+['dragover','dragleave','drop'].forEach(ev=>{
+  $('pdrop').addEventListener(ev,e=>{
+    e.preventDefault();
+    $('pdrop').classList.toggle('over', ev==='dragover');
+    if(ev==='drop' && e.dataTransfer.files[0]) ploadFile(e.dataTransfer.files[0]);
+  });
+});
+function ploadFile(f){
+  if(!f||!f.type.startsWith('image/'))return;
+  const r=new FileReader();
+  r.onload=()=>{ const i=new Image(); i.onload=()=>{pImg=i;pBuild(true);}; i.src=r.result; };
+  r.readAsDataURL(f);
+}
+
+// 컨트롤
+$('pcols').oninput=()=>{$('pcolsVal').textContent=$('pcols').value;pBuild(true);};
+$('pscale').oninput=()=>{pSc=+$('pscale').value;$('pscaleVal').textContent=pSc+'×';prender();};
+$('popacity').oninput=()=>{$('popacityVal').textContent=$('popacity').value+'%';prender();};
+$('pgrid').onchange=prender;
+$('pruler').onchange=prender;
+$('pcolor').oninput=()=>{eyeOn=false;eraserOn=false;syncTools();};
+$('peye').onclick=()=>{eyeOn=!eyeOn; if(eyeOn)eraserOn=false; syncTools();};
+$('peraser').onclick=()=>{eraserOn=!eraserOn; if(eraserOn)eyeOn=false; syncTools();};
+$('pclear').onclick=()=>{paint=new Array(pCols*pRows).fill(null);prender();};
+$('psave').onclick=()=>{
+  const a=document.createElement('a');
+  a.download='pixel-paint.png'; a.href=pcv.toDataURL('image/png'); a.click();
+};
+
+function syncTools(){
+  $('peye').classList.toggle('on',eyeOn);
+  $('peraser').classList.toggle('on',eraserOn);
+  pcv.style.cursor = eyeOn?'copy':(eraserOn?'cell':'crosshair');
+  $('phint').textContent = eyeOn? t('p_eyehint') : t('p_hint');
+}
+
+function pBuild(reset){
+  if(!pImg)return;
+  pCols=+$('pcols').value; pSc=+$('pscale').value;
+  pRows=Math.max(1, Math.round(pCols/(pImg.width/pImg.height)));
+  if(reset || paint.length!==pCols*pRows) paint=new Array(pCols*pRows).fill(null);
+  // 참조용 저해상 캔버스(스포이드 색 추출용)
+  const rc=document.createElement('canvas'); rc.width=pCols; rc.height=pRows;
+  refCtx=rc.getContext('2d'); refCtx.imageSmoothingEnabled=true;
+  refCtx.drawImage(pImg,0,0,pCols,pRows);
+  $('pempty').style.display='none'; pcv.style.display='block';
+  prender();
+}
+
+function pG(){
+  if(!$('pruler').checked) return 0;
+  const digits=Math.max(String(pCols).length,String(pRows).length);
+  const rf=Math.max(8,Math.floor(pSc*0.45));
+  return Math.ceil(rf*digits*0.62)+6;
+}
+
+function prender(){
+  if(!pImg)return;
+  const G=pG(), W=pCols*pSc, H=pRows*pSc;
+  pcv.width=W+G; pcv.height=H+G;
+  pctx.clearRect(0,0,pcv.width,pcv.height);
+
+  // 참조 이미지(흐리게)
+  const op=+$('popacity').value/100;
+  if(op>0){
+    pctx.imageSmoothingEnabled=true; pctx.globalAlpha=op;
+    pctx.drawImage(pImg, G, G, W, H);
+    pctx.globalAlpha=1;
+  }
+  // 찍은 색
+  for(let cy=0;cy<pRows;cy++)for(let cx=0;cx<pCols;cx++){
+    const col=paint[cy*pCols+cx];
+    if(col){ pctx.fillStyle=col; pctx.fillRect(G+cx*pSc,G+cy*pSc,pSc,pSc); }
+  }
+  // 격자선(가이드)
+  if($('pgrid').checked){
+    pctx.strokeStyle='rgba(0,0,0,.28)'; pctx.lineWidth=1;
+    for(let x=0;x<=pCols;x++){pctx.beginPath();pctx.moveTo(G+x*pSc,G);pctx.lineTo(G+x*pSc,pcv.height);pctx.stroke();}
+    for(let y=0;y<=pRows;y++){pctx.beginPath();pctx.moveTo(G,G+y*pSc);pctx.lineTo(pcv.width,G+y*pSc);pctx.stroke();}
+  }
+  // 외곽 눈금
+  if(G){
+    pctx.fillStyle='#e6e6ec';
+    pctx.fillRect(0,0,pcv.width,G); pctx.fillRect(0,0,G,pcv.height);
+    pctx.fillStyle='#555'; pctx.textAlign='center'; pctx.textBaseline='middle';
+    const rf=Math.max(8,Math.floor(pSc*0.45)); pctx.font=`${rf}px monospace`;
+    for(let x=0;x<pCols;x++){pctx.save();pctx.translate(G+x*pSc+pSc/2,G/2);pctx.rotate(-Math.PI/2);pctx.fillText(x+1,0,0);pctx.restore();}
+    for(let y=0;y<pRows;y++){pctx.fillText(y+1,G/2,G+y*pSc+pSc/2);}
+    pctx.strokeStyle='rgba(0,0,0,.25)';pctx.lineWidth=1;
+    pctx.beginPath();pctx.moveTo(G,G);pctx.lineTo(pcv.width,G);pctx.stroke();
+    pctx.beginPath();pctx.moveTo(G,G);pctx.lineTo(G,pcv.height);pctx.stroke();
+  }
+  $('pinfo').textContent=`${t('grid')} ${pCols} × ${pRows}`;
+}
+
+function cellAt(e){
+  const G=pG(), rect=pcv.getBoundingClientRect();
+  const sx=pcv.width/rect.width, sy=pcv.height/rect.height;
+  const x=(e.clientX-rect.left)*sx-G, y=(e.clientY-rect.top)*sy-G;
+  if(x<0||y<0)return null;
+  const cx=Math.floor(x/pSc), cy=Math.floor(y/pSc);
+  if(cx<0||cy<0||cx>=pCols||cy>=pRows)return null;
+  return {cx,cy};
+}
+function addRecent(hexv){
+  recents=[hexv,...recents.filter(c=>c!==hexv)].slice(0,8);
+  const box=$('precents'); box.innerHTML='';
+  recents.forEach(c=>{
+    const d=document.createElement('div'); d.className='r'; d.style.background=c; d.title=c;
+    d.onclick=()=>{$('pcolor').value=c; eyeOn=false; eraserOn=false; syncTools();};
+    box.appendChild(d);
+  });
+}
+function applyCell(cell){
+  if(!cell)return;
+  const idx=cell.cy*pCols+cell.cx;
+  if(eraserOn){ paint[idx]=null; }
+  else { const c=$('pcolor').value; paint[idx]=c; }
+  prender();
+}
+function pickColor(cell){
+  if(!cell||!refCtx)return;
+  const d=refCtx.getImageData(cell.cx,cell.cy,1,1).data;
+  const hexv=hex([d[0],d[1],d[2]]);
+  $('pcolor').value=hexv; addRecent(hexv);
+  eyeOn=false; syncTools();
+}
+
+pcv.addEventListener('pointerdown',e=>{
+  const cell=cellAt(e); if(!cell)return;
+  if(eyeOn){ pickColor(cell); return; }
+  drawing=true; pcv.setPointerCapture(e.pointerId);
+  if(!eraserOn) addRecent($('pcolor').value);
+  applyCell(cell);
+});
+pcv.addEventListener('pointermove',e=>{ if(drawing) applyCell(cellAt(e)); });
+pcv.addEventListener('pointerup',()=>{drawing=false;});
+pcv.addEventListener('pointerleave',()=>{drawing=false;});
+
+applyLang();
+
+function showPalette(used, total){
+  $('pal').style.display='block';
+  $('palTitle').textContent=`${t('pal_title')} (${used.length}${t('u_color')})`;
+  const box=$('swatches'); box.innerHTML='';
+  used.forEach(({c,n},idx)=>{
+    const pct=Math.round(n/total*100);
+    const el=document.createElement('div');
+    el.className='sw';
+    el.innerHTML=`<div class="box" style="background:${hex(c)};position:relative">
+        <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${lum(c[0],c[1],c[2])>140?'#000':'#fff'}">${idx+1}</span>
+      </div>
+      <div class="txt"><div class="hex">${hex(c)}</div>
+      <div class="rgb">rgb(${c[0]}, ${c[1]}, ${c[2]}) · ${pct}%</div></div>
+      <span class="copy">${t('copy')}</span>`;
+    el.querySelector('.copy').onclick=ev=>{
+      navigator.clipboard?.writeText(hex(c));
+      ev.target.textContent=t('copied'); setTimeout(()=>ev.target.textContent=t('copy'),1000);
+    };
+    box.appendChild(el);
+  });
+}
+</script>
+</body>
+</html>
